@@ -14,15 +14,17 @@ class AccountingBook():
 
     def __init__(self):
         self._user = AccountingBook._user_login()
-        self._data_file = f'{self._user}.json'
-        self._data = self._load_data()
+        self._data_file = f'registers_{self._user}.json'
+        self._data = self._load_registers()
+        self._categories_file = f'categories_{self._user}.json'
+        self._categories = self._load_categories()
         self._menu()
 
     @staticmethod
     def _user_login():
         return input("Introduce tu nombre de usuario: ").strip()
 
-    def _load_data(self):
+    def _load_registers(self):
         try:
             with open(f'{DATA_PATH}/{self._data_file}', "r") as file:
                 return json.load(file)
@@ -37,6 +39,15 @@ class AccountingBook():
                 self._user_login()
             else:
                 print("Entonces, ¡hasta luego!")
+
+    def _load_categories(self):
+        try:
+            with open(f'{DATA_PATH}/{self._categories_file}', "r") as file:
+                return json.load(file)
+        except FileNotFoundError:
+            print(f"No existen categorías de gasto para el usuario {self._user}.")
+            print("Puedes añadir una nueva categoría desde el menú principal.")
+            return []
 
     def _save_data(self):
         with open(f'{DATA_PATH}/{self._data_file}', "w") as file:
@@ -54,14 +65,27 @@ class AccountingBook():
             AccountingBook._ask_date()
         return date
 
-    @staticmethod
-    def _ask_category() -> str:
-        category = input("Categoría: ").strip()
-        if not category:
-            raise ValueError("La categoría no puede estar vacía. Intenta nuevamente.")
-            AccountingBook._ask_category()
+    def _ask_category(self) -> str:
+        if len(self._categories) == 0:
+            print("No hay categorías preexistentes. Se creará una nueva.")
+            self._create_expense_category()
+        print("Estas son las categorías existentes:")
+        i = 1
+        for category in self._categories:
+            print(f"{i}. {category}")
+            i += 1
+        answer = input("Indica la categoría de gasto o 0 para añadir una nueva categoría: ").strip()
+
+        if answer == "0":
+            self._create_expense_category()
+            return self._ask_category()
         else:
-            return category
+            try:
+                return self._categories[int(answer)-1]
+            except IndexError:
+                print("La respuesta indicada no corresponde a ninguna categoría existente.")
+                print("Por favor, indica el número de una de las categorías de la lista.")
+                self._ask_category()
 
     @staticmethod
     def _ask_amount() -> float:
@@ -77,7 +101,7 @@ class AccountingBook():
         print("Introduce los datos de la transacción:")
 
         date = AccountingBook._ask_date()
-        category = AccountingBook._ask_category()
+        category = self._ask_category()
         amount = AccountingBook._ask_amount()
 
         # Crear la transacción
@@ -103,6 +127,11 @@ class AccountingBook():
                       f"{RegisterHeaders.CATEGORY.value}: {t[RegisterHeaders.CATEGORY.value]}, "
                       f"{RegisterHeaders.AMOUNT.value}: {t[RegisterHeaders.AMOUNT.value]}")
 
+    def _create_expense_category(self):
+        category_label = input("Introduce el nombre de la nueva categoría de gasto: ")
+        self._categories.append(category_label)
+        print(f"La nueva categoría de gasto {category_label} ha sido añadida correctamente.")
+
     # Menú principal
     def _menu(self):
         while True:
@@ -110,7 +139,7 @@ class AccountingBook():
             print("1. Añadir nuevo registro")
             print("2. Ver registros")
             print("3. Editar registro")  #TODO
-            print("4. Añadir categoría de gasto")  #TODO
+            print("4. Añadir categoría de gasto")
             print("5. Añadir categoría de ingreso")  #TODO
             print("6. Editar categoría de gasto")  #TODO
             print("7. Editar categoría de ingreso")  #TODO
@@ -118,15 +147,27 @@ class AccountingBook():
 
             opcion = input("Selecciona una opción: ").strip()
 
-            if opcion == "1":
-                self._new_register()
-            elif opcion == "2":
-                self._display_data()
-            elif opcion == "3":
-                print("¡Hasta luego!")
-                break
-            else:
-                print("Opción inválida. Intenta nuevamente.")
+            match opcion:
+                case "1":
+                    self._new_register()
+                case "2":
+                    self._display_data()
+                case "3":
+                    raise NotImplementedError("Lamentablemente, esta opción todavía no está implementada. Elige otra.")
+                case "4":
+                    self._create_expense_category()
+                case "5":
+                    raise NotImplementedError("Lamentablemente, esta opción todavía no está implementada. Elige otra.")
+                case "6":
+                    raise NotImplementedError("Lamentablemente, esta opción todavía no está implementada. Elige otra.")
+                case "7":
+                    raise NotImplementedError("Lamentablemente, esta opción todavía no está implementada. Elige otra.")
+                case "8":
+                    print("¡Hasta luego!")
+                    break
+                case _:
+                    print("Opción no válida. Intenta nuevamente.")
+                    self._menu()
 
 
 if __name__ == "__main__":
