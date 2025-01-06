@@ -1,28 +1,41 @@
 from enum import Enum
 
 class RegisterHeaders(Enum):
-    DATE = 'Fecha'
-    CATEGORY = 'Categoria'
-    AMOUNT = 'Importe'
+    DATE = "Fecha"
+    CATEGORY = "Categoria"
+    AMOUNT = "Importe"
+    COMMENT = "Comentarios"
 
-class ExpendituresCategories(Enum):
-    Hogar = 'hogar'
-    Suministros = 'suministros'
-    Supermercado = 'supermercado'
-    Viajes = 'viajes'
-    Transporte = 'transporte'
-    Restaurantes = 'restaurantes'
-    Ocio = 'ocio'
-    Regalos = 'regalos'
-    Suscripciones = 'suscripciones'
-    Caprichos = 'caprichos'
-    Ropa = 'ropa'
-    Formacion = 'formacion'
-    Salud = 'salud'
-    Gato = 'gato'
-    Otros = 'otros'
+class DateElements(Enum):
+    YEAR = "Año"
+    MONTH = "Mes"
+    DAY = "Día"
+    FORMAT_DDMMYYYY = "%d-%m-%Y"
+    FORMAT_YYYYMMDD = "%Y-%m-%d"
+    FORMAT_DDMMYYYYHHMMSS = "%d-%m-%Y %H:%M:%S"
 
-class IncomeCategories(Enum):
-    Salario = 'salario'
-    Rentas = 'rentas'
-    Otros = 'otros'
+class WriteMode(Enum):
+    BINARY = "wb"
+    TEXT = "w"
+
+class ReadMode(Enum):
+    BINARY = "rb"
+    TEXT = "r"
+
+class FileExtensions(Enum):
+    PICKLE = "pickle"
+    JSON = "json"
+
+    @classmethod
+    def get_file_extension(cls, file_extension: str) -> str:
+        if not isinstance(file_extension, str):
+            raise TypeError("The file name must be a string")
+        if file_extension.endswith("."):
+            raise RuntimeError("File name must not end with '.'")
+        elif "." in file_extension:
+            return cls.get_file_extension(file_extension.split('.')[-1])
+        match file_extension:
+            case _ if file_extension in [extension.value for extension in cls]:
+                return cls(file_extension)
+            case _:
+                raise NotImplementedError(f"File extension {file_extension} not encoded in {FileExtensions}")
