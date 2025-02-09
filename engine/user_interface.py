@@ -98,6 +98,3 @@ class UserInterface():
                 case _:
                     print("Opción no válida. Intenta nuevamente.")
                     self._menu()
-
-if __name__ == "__main__":
-    UserInterface()
