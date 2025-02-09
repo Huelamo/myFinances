@@ -110,56 +110,13 @@ class AccountingBook():
             AccountingBook._ask_date()
         return pd.to_datetime(date, format=DateElements.FORMAT_DDMMYYYY.value)
 
-    def _ask_category(self) -> str:
-        if len(self._categories) == 0:
-            print("No hay categorías preexistentes. Se creará una nueva.")
-            self._create_expense_category()
-        print("Estas son las categorías existentes:")
-        i = 1
-        for category in self._categories:
-            print(f"{i}. {category}")
-            i += 1
-        answer = input("Indica la categoría de gasto o 0 para añadir una nueva categoría: ").strip()
-
-        if not answer:
-            print("Debes seleccionar una de las categorías del listado. Prueba otra vez.")
-            self._ask_category()
-        elif answer == "0":
-            self._create_expense_category()
-            return self._ask_category()
-        else:
-            try:
-                return self._categories[int(answer)-1]
-            except IndexError:
-                print("La respuesta indicada no corresponde a ninguna categoría existente.")
-                print("Por favor, indica el número de una de las categorías de la lista.")
-                self._ask_category()
-
-    @staticmethod
-    def _ask_amount() -> float:
-        amount = input("Introduce el importe (utiliza el punto como separador decimal): ").strip()
-        try:
-            amount = float(amount)
-        except ValueError:
-            print("Formato de importe inválido. Intenta nuevamente.")
-            AccountingBook._ask_amount()
-        return amount
-
-    @staticmethod
-    def _ask_comments() -> str:
-        comments = input("Escribe un comentario acerca de este gasto. Para dejarlo vacío, pulsa la tecla Enter: ")
-        if not comments:
-            return "Sin comentarios"
-        else:
-            return comments
-
-    def _new_register(self):
+    def new_register(self, date, category, amount, comments):
         print("Introduce los datos de la transacción:")
 
-        date = AccountingBook._ask_date()
-        category = self._ask_category()
-        amount = AccountingBook._ask_amount()
-        comments = AccountingBook._ask_comments()
+        #date = AccountingBook._ask_date()
+        #category = self._ask_category()
+        #amount = AccountingBook._ask_amount()
+        #comments = AccountingBook._ask_comments()
 
         new_registration = BookCell(date, category, amount, comments)
 

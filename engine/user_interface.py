@@ -1,10 +1,13 @@
-import sys
+from datetime import datetime
+import pandas as pd
+
 
 from engine.accounting_book import AccountingBook
 from enums.engine_enums import RegisterHeaders, DateElements
 class UserInterface():
 
     def __init__(self):
+        self._categories = None
         self._user = self._user_login()
         self._active_book = AccountingBook(user=self._user, load_data=True)
         self._menu()
@@ -12,6 +15,73 @@ class UserInterface():
     @staticmethod
     def _user_login():
         return input("Introduce tu nombre de usuario: ").strip()
+
+    @staticmethod
+    def _ask_date() -> datetime:
+        date = input("Fecha (DD-MM-YYYY, presiona Enter para hoy): ").strip()
+        if not date:  # Si el usuario deja vacío, toma la fecha actual
+            date = datetime.now().strftime(DateElements.FORMAT_DDMMYYYY.value)
+        try:
+            date = datetime.strptime(date, DateElements.FORMAT_DDMMYYYY.value).strftime(
+                DateElements.FORMAT_DDMMYYYY.value)
+        except ValueError:
+            print("Formato de fecha inválido. Intenta nuevamente.")
+            UserInterface._ask_date()
+        return pd.to_datetime(date, format=DateElements.FORMAT_DDMMYYYY.value)
+
+    @staticmethod
+    def _ask_comments() -> str:
+        comments = input("Escribe un comentario acerca de este gasto. Para dejarlo vacío, pulsa la tecla Enter: ")
+        if not comments:
+            return "Sin comentarios"
+        else:
+            return comments
+
+    @staticmethod
+    def _ask_amount() -> float:
+        amount = input("Introduce el importe (utiliza el punto como separador decimal): ").strip()
+        try:
+            amount = float(amount)
+        except ValueError:
+            print("Formato de importe inválido. Intenta nuevamente.")
+            UserInterface._ask_amount()
+        return amount
+
+    def _ask_category(self) -> str:
+        if len(self._active_book.categories) == 0:
+            print("No hay categorías preexistentes. Se creará una nueva.")
+            self._active_book._create_expense_category()
+        print("Estas son las categorías existentes:")
+        i = 1
+        for category in self._active_book.categories:
+            print(f"{i}. {category}")
+            i += 1
+        answer = input("Indica la categoría de gasto o 0 para añadir una nueva categoría: ").strip()
+
+        if not answer:
+            print("Debes seleccionar una de las categorías del listado. Prueba otra vez.")
+            UserInterface._ask_category()
+        elif answer == "0":
+            self._active_book._create_expense_category()
+            return self._ask_category()
+        else:
+            try:
+                return self._active_book.categories[int(answer)-1]
+            except IndexError:
+                print("La respuesta indicada no corresponde a ninguna categoría existente.")
+                print("Por favor, indica el número de una de las categorías de la lista.")
+                self._ask_category()
+
+
+    def _new_register(self):
+        date = UserInterface._ask_date()
+        category = self._ask_category()
+        amount = UserInterface._ask_amount()
+        comments = UserInterface._ask_comments()
+
+        self._active_book.new_register(date, category, amount, comments)
+
+
 
     def _display_data(self):
         category = self._active_book._ask_category()
@@ -55,6 +125,8 @@ class UserInterface():
                 print("Respuesta no válida. Por favor, inténtalo de nuevo.\n")
                 self._delete_user_data()
 
+    def edit_register(self):
+        date = input("Indica la fecha del registro que deseas modificar (DD-MM-YYYY): ")
     def _menu(self):
         while True:
             print("\n--- Gestor de Gastos ---")
@@ -73,7 +145,7 @@ class UserInterface():
 
             match opcion:
                 case "1":
-                    self._active_book._new_register()
+                    self._new_register()
                     AccountingBook._save_to_file(self._active_book._data, self._active_book._data_file)
                 case "2":
                     self._display_data()
