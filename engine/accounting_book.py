@@ -1,51 +1,77 @@
 import json
 import pandas as pd
+import os
+import shutil
 from datetime import datetime
 from pathlib import Path
 import pickle
 from typing import Callable
 
-from enums.engine_enums import RegisterHeaders, DateElements, ReadMode, WriteMode, FileExtensions
+from enums.engine_enums import RegisterHeaders, FileIds, DateElements, ReadMode, WriteMode, FileExtensions, Directories
 
 # Archivo donde se almacenarán los datos
-DATA_PATH = Path(__file__).resolve().parent.parent / "data"
-DATA_PATH.mkdir(exist_ok=True)
+_DATA_PATH = Path(__file__).resolve().parent.parent / Directories.DATA.value
+_DATA_PATH.mkdir(exist_ok=True)
+_BACKUP_PATH = _DATA_PATH / Directories.BACKUP.value
+_BACKUP_PATH.mkdir(exist_ok=True)
 registers_file_extension = FileExtensions.PICKLE
 categories_file_extension = FileExtensions.JSON
 
 class AccountingBook():
 
-    def __init__(self, user):
+    def __init__(self, user, load_data: bool=False):
         self._user = user
         self._data_file = f'registers_{self._user}.{registers_file_extension.value}'
-        self._data = AccountingBook._load_registers(self._data_file, self._user)
         self._categories_file = f'categories_{self._user}.{categories_file_extension.value}'
-        self._categories = AccountingBook._load_categories(self._categories_file, self._user)
+        if load_data:
+            self._data = AccountingBook._load_book(self._user)
+            self._categories = AccountingBook._load_categories(self._categories_file, self._user)
+
+    @property
+    def user(self):
+        return self._user
+
+    @property
+    def categories(self):
+        return self._categories
+    
+    @staticmethod
+    def _check_existing_registers(user: str):
+        return os.path.exists(f"{_DATA_PATH}/{FileIds.BOOK_FILE_PREFIX}{user}.{registers_file_extension.value}")
 
     @staticmethod
-    def _load_registers(file_name: str, user: str) -> list:
+    def _create_book(user: str) -> list:
+        return []
+
+    @staticmethod
+    def _load_book(user: str) -> list:
+        file_name = f"{FileIds.BOOK_FILE_PREFIX.value}{user}.{registers_file_extension.value}"
         file_extension = FileExtensions.get_file_extension(file_name)
         load_method = get_load_method(file_extension)
         read_mode = get_file_read_mode(file_extension)
         try:
-            with open(f'{DATA_PATH}/{file_name}', read_mode.value) as input_file:
+            with open(f'{_DATA_PATH}/{file_name}', read_mode.value) as input_file:
                 return load_method(input_file)
         except FileNotFoundError:
             print(f"\nNo existen registros para el usuario {user}. ¿Qué deseas hacer?\n")
             print("1. Crear un nuevo libro de cuentas")
-            print("2. Salir")
+            print("2. Intentar recuperar datos borrados")
+            print("3. Salir")
             answer = input("\nIntroduce tu respuesta: ")
             match answer:
                 case "1":
                     print("\nSe ha creado un nuevo libro de cuentas")
                     return []
                 case "2":
+                    print(f"\nComprobando la existencia de copias de seguridad del usuario '{user}'")
+                    AccountingBook._restore_user_data()
+                case "3":
                     print("\nHas elegido cerrar sesión. ¡Hasta pronto!")
 
     @staticmethod
     def _load_categories(categories_file, user) -> list:
         try:
-            with open(f'{DATA_PATH}/{categories_file}', ReadMode.TEXT.value) as file:
+            with open(f'{_DATA_PATH}/{categories_file}', ReadMode.TEXT.value) as file:
                 return json.load(file)
         except FileNotFoundError:
             print(f"No existen categorías de gasto para el usuario {user}.")
@@ -58,13 +84,13 @@ class AccountingBook():
         match file_extension:
             case FileExtensions.PICKLE:
                 try:
-                    with open(f'{DATA_PATH}/{file_name}', WriteMode.BINARY.value) as output_file:
+                    with open(f'{_DATA_PATH}/{file_name}', WriteMode.BINARY.value) as output_file:
                         pickle.dump(data, output_file)
                 except (OSError, IOError) as e:
                     print(f"Error al guardar el archivo {file_name}: {e}")
             case FileExtensions.JSON:
                 try:
-                    with open(f'{DATA_PATH}/{file_name}', WriteMode.TEXT.value) as output_file:
+                    with open(f'{_DATA_PATH}/{file_name}', WriteMode.TEXT.value) as output_file:
                         json.dump(data, output_file, indent=4)
                 except (OSError, IOError) as e:
                     print(f"Error al guardar el archivo {file_name}: {e}")
@@ -77,7 +103,8 @@ class AccountingBook():
         if not date:  # Si el usuario deja vacío, toma la fecha actual
             date = datetime.now().strftime(DateElements.FORMAT_DDMMYYYY.value)
         try:
-            date = datetime.strptime(date, DateElements.FORMAT_DDMMYYYY.value).strftime(DateElements.FORMAT_DDMMYYYY.value)
+            date = datetime.strptime(date, DateElements.FORMAT_DDMMYYYY.value).strftime(
+                DateElements.FORMAT_DDMMYYYY.value)
         except ValueError:
             print("Formato de fecha inválido. Intenta nuevamente.")
             AccountingBook._ask_date()
@@ -181,6 +208,40 @@ class AccountingBook():
         #self._display_data(filters)
         #new_amount = self._ask_amount()
 
+    @staticmethod
+    def _delete_user_data(user):
+        data_file = f"{FileIds.BOOK_FILE_PREFIX.value}{user}.{registers_file_extension.value}"
+        categories_file = f"{FileIds.CATEGORIES_FILE_PREFIX.value}{user}.{categories_file_extension.value}"
+        if not os.path.exists(f"{_DATA_PATH}/{data_file}"):
+            print(f"Los datos del usuario '{user}' no existen.")
+            return
+        shutil.move(f"{_DATA_PATH}/{data_file}", f"{_BACKUP_PATH}/{data_file}")
+        if not os.path.exists(f"{_DATA_PATH}/{categories_file}"):
+            print(f"No se encontraron categorías preexistentes para el usuario {user}")
+        else:
+            shutil.move(f"{_DATA_PATH}/{categories_file}", f"{_BACKUP_PATH}/{categories_file}")
+
+        print(f"Se han eliminado todos los datos del usuario '{user}'. Todavía puedes restaurarlos accediendo al "
+              f"directorio de respaldo: {_BACKUP_PATH}")
+
+    @staticmethod
+    def _restore_user_data(user):
+        data_file = f"{FileIds.BOOK_FILE_PREFIX.value}{user}.{registers_file_extension.value}"
+        categories_file = f"{FileIds.CATEGORIES_FILE_PREFIX.value}{user}.{categories_file_extension.value}"
+        if not os.path.exists(f"{_BACKUP_PATH}/{data_file}"):
+            print(
+                f"No se pudo recuperar información sobre registros del usuario '{user}'. Comprueba el directorio "
+                f"de respaldo: {_BACKUP_PATH}.")
+            return
+        shutil.move(f"{_BACKUP_PATH}/{data_file}", f"{_DATA_PATH}/{data_file}")
+        if not os.path.exists(f"{_BACKUP_PATH}/{categories_file}"):
+            print(
+                f"No se pudo recuperar información sobre categorías del usuario '{user}'. Comprueba el directorio"
+                f" de respaldo: {_BACKUP_PATH}.")
+        else:
+            shutil.move(f"{_BACKUP_PATH}/{categories_file}", f"{_DATA_PATH}/{categories_file}")
+
+        print(f"Los datos de '{user}' han sido restaurados. Puedes encontrarlos en: {_DATA_PATH}")
 
 class BookCell():
     def __init__(self, date: datetime, category: str, amount: float, comments: str):
